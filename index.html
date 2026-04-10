@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>🔥 Hero Ultimate League 🔥</title>
+
+<style>
+body {
+    font-family:Arial;
+    background:#0b0b0b;
+    color:white;
+    text-align:center;
+}
+
+header {
+    background:linear-gradient(red,black);
+    padding:20px;
+    font-size:28px;
+}
+
+input, select {
+    padding:8px;
+    margin:5px;
+}
+
+button {
+    padding:8px;
+    margin:5px;
+    background:red;
+    color:white;
+    border:none;
+}
+
+.team, .match {
+    background:#1c1c1c;
+    margin:10px;
+    padding:10px;
+    border-radius:10px;
+}
+
+.field {
+    width:300px;
+    height:400px;
+    background:green;
+    margin:20px auto;
+    position:relative;
+    border:3px solid white;
+}
+
+.player {
+    position:absolute;
+    background:red;
+    border-radius:50%;
+    padding:5px;
+    font-size:10px;
+    cursor:grab;
+}
+</style>
+
+</head>
+
+<body>
+
+<header>🔥 Hero Ultimate League 🔥</header>
+
+<h2>🏆 إضافة فريق</h2>
+<input id="teamName" placeholder="اسم الفريق">
+<input type="file" id="teamLogo">
+<button onclick="addTeam()">إضافة</button>
+
+<div id="teams"></div>
+
+<hr>
+
+<h2>👥 إضافة لاعب</h2>
+<input id="playerName" placeholder="اسم اللاعب">
+<input id="number" placeholder="رقم اللاعب">
+<input id="position" placeholder="المركز">
+<input type="file" id="playerImage">
+<select id="teamSelect"></select>
+<button onclick="addPlayer()">إضافة</button>
+
+<hr>
+
+<h2>🧠 التشكيلة</h2>
+<select id="formationTeam"></select>
+<button onclick="loadFormation()">عرض</button>
+
+<div class="field" id="field"></div>
+
+<hr>
+
+<h2>📅 المباريات</h2>
+<button onclick="generateMatches()">عمل دوري</button>
+<div id="matches"></div>
+
+<hr>
+
+<h2>📊 الترتيب</h2>
+<div id="table"></div>
+
+<hr>
+
+<h2>🥇 الهدافين</h2>
+<div id="scorers"></div>
+
+<script>
+
+let teams = JSON.parse(localStorage.getItem("teams")) || [];
+let matches = JSON.parse(localStorage.getItem("matches")) || [];
+
+function save(){
+localStorage.setItem("teams", JSON.stringify(teams));
+localStorage.setItem("matches", JSON.stringify(matches));
+}
+
+function getImage(file){
+return new Promise(resolve=>{
+let reader=new FileReader();
+reader.onload=()=>resolve(reader.result);
+reader.readAsDataURL(file);
+});
+}
+
+async function addTeam(){
+let logo = teamLogo.files[0] ? await getImage(teamLogo.files[0]) : "";
+
+teams.push({
+name: teamName.value,
+logo,
+players:[],
+points:0,wins:0,draws:0,losses:0,played:0
+});
+
+save();
+update();
+}
+
+async function addPlayer(){
+let img = playerImage.files[0] ? await getImage(playerImage.files[0]) : "";
+
+let t = teams[teamSelect.value];
+
+if(t.players.length>=6){
+alert("الفريق كامل");
+return;
+}
+
+t.players.push({
+name: playerName.value,
+number: number.value,
+position: position.value,
+image: img,
+goals:0,
+top:50,left:120
+});
+
+save();
+update();
+}
+
+function loadFormation(){
+field.innerHTML="";
+let t = teams[formationTeam.value];
+
+t.players.forEach((p,i)=>{
+let div=document.createElement("div");
+div.className="player";
+div.innerText=p.number;
+
+div.style.top=p.top+"px";
+div.style.left=p.left+"px";
+
+div.draggable=true;
+
+div.ondragend=(e)=>{
+p.top=e.offsetY;
+p.left=e.offsetX;
+save();
+};
+
+div.onclick=()=>{
+let g=prompt("كم هدف سجله؟");
+p.goals += parseInt(g||0);
+save();
+update();
+};
+
+field.appendChild(div);
+});
+}
+
+function generateMatches(){
+matches=[];
+for(let i=0;i<teams.length;i++){
+for(let j=i+1;j<teams.length;j++){
+matches.push({t1:i,t2:j,score:"-"});
+}
+}
+save();
+update();
+}
+
+function playMatch(i){
+let g1=parseInt(prompt("اهداف الفريق الاول"));
+let g2=parseInt(prompt("اهداف الفريق الثاني"));
+
+let t1=teams[matches[i].t1];
+let t2=teams[matches[i].t2];
+
+if(g1>g2){t1.points+=3;t1.wins++;t2.losses++;}
+else if(g2>g1){t2.points+=3;t2.wins++;t1.losses++;}
+else{t1.points++;t2.points++;t1.draws++;t2.draws++;}
+
+matches[i].score=g1+"-"+g2;
+
+save();
+update();
+}
+
+function update(){
+teamsDiv.innerHTML="";
+teamSelect.innerHTML="";
+formationTeam.innerHTML="";
+
+teams.forEach((t,i)=>{
+teamsDiv.innerHTML+=`
+<div class="team">
+<img src="${t.logo}" width="50"><br>
+${t.name}
+</div>`;
+
+teamSelect.innerHTML+=`<option value="${i}">${t.name}</option>`;
+formationTeam.innerHTML+=`<option value="${i}">${t.name}</option>`;
+});
+
+matchesDiv.innerHTML="";
+matches.forEach((m,i)=>{
+matchesDiv.innerHTML+=`
+<div class="match">
+${teams[m.t1]?.name} 🆚 ${teams[m.t2]?.name}<br>
+${m.score}<br>
+<button onclick="playMatch(${i})">لعب</button>
+</div>`;
+});
+
+teams.sort((a,b)=>b.points-a.points);
+
+table.innerHTML="";
+teams.forEach(t=>{
+table.innerHTML+=`
+<div class="team">
+${t.name} - ${t.points} نقطة
+</div>`;
+});
+
+let scorersList=[];
+teams.forEach(t=>{
+t.players.forEach(p=>{
+scorersList.push(p);
+});
+});
+
+scorersList.sort((a,b)=>b.goals-a.goals);
+
+scorers.innerHTML="";
+scorersList.slice(0,5).forEach(p=>{
+scorers.innerHTML+=`
+<div class="team">
+${p.name} - ⚽ ${p.goals}
+</div>`;
+});
+}
+
+update();
+
+</script>
+
+</body>
+  </html>
